@@ -1,5 +1,5 @@
 // MoodPixels service worker — cache offline-first
-var VERSION = "moodpixels-v1";
+var VERSION = "moodpixels-v2";
 var CORE = [
   "./",
   "./index.html",
@@ -34,7 +34,7 @@ self.addEventListener("fetch", function (e) {
   // Navegação: tenta a rede, cai para o cache se estiver offline
   if (req.mode === "navigate") {
     e.respondWith(
-      fetch(req).then(function (res) {
+      fetch(req, { cache: "no-cache" }).then(function (res) {
         var copy = res.clone();
         caches.open(VERSION).then(function (c) { c.put("./index.html", copy); });
         return res;
@@ -56,16 +56,17 @@ self.addEventListener("fetch", function (e) {
     return;
   }
 
-  // Arquivos do próprio app: cache primeiro
+  // Arquivos do próprio app: rede primeiro (sempre a versão mais nova),
+  // cache só como reserva quando estiver offline
   if (url.origin === location.origin) {
     e.respondWith(
-      caches.match(req).then(function (hit) {
-        return hit || fetch(req).then(function (res) {
+      fetch(req, { cache: "no-cache" }).then(function (res) {
+        if (res && res.ok) {
           var copy = res.clone();
           caches.open(VERSION).then(function (c) { c.put(req, copy); });
-          return res;
-        });
-      })
+        }
+        return res;
+      }).catch(function () { return caches.match(req); })
     );
   }
 });
